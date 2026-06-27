@@ -1,11 +1,16 @@
-﻿import 'dotenv/config';
+import 'dotenv/config';
 import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import { REST } from '@discordjs/rest';
 import express from 'express';
 import cron from 'node-cron';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import config from './config/application.js';
 import { initializeDatabase } from './utils/database.js';
+import dashboardAuthRoutes from './dashboard/authRoutes.js';
+import dashboardApiRoutes from './dashboard/apiRoutes.js';
+import { sessionMiddleware } from './dashboard/session.js';
 import { getGuildConfig } from './services/guildConfig.js';
 import { getServerCounters, saveServerCounters, updateCounter } from './services/serverstatsService.js';
 import { logger, startupLog, shutdownLog } from './utils/logger.js';
@@ -209,6 +214,18 @@ class TitanBot extends Client {
         timestamp: new Date().toISOString()
       });
     });
+
+    // --- Dashboard ---------------------------------------------------------
+    app.set('botClient', this);
+    app.use(express.json());
+    app.use(sessionMiddleware);
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    app.use('/dashboard', express.static(path.join(__dirname, 'dashboard', 'public')));
+    app.use('/auth', dashboardAuthRoutes);
+    app.use('/api', dashboardApiRoutes);
+    // -------------------------------------------------------------------------
 
     const startServer = (port, attempt = 0) => {
       let hasStartedListening = false;
